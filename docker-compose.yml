@@ -1,0 +1,12 @@
+services:
+  ao3_updater:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ao3_updater
+    volumes:
+      - type: bind
+        source: D:/books
+        target: /app
+    restart: always
+    env_file: .env
