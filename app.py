@@ -67,7 +67,7 @@ def work_has_changed(work: AO3.Work, filepath: str) -> bool:
             return True
         
         # Test if the file changed date is older than the work's last updated date
-        if os.path.getmtime(filepath) < work.updated:
+        if os.path.getmtime(filepath) < work.date_updated.timestamp():
             return True
         
         # Test if the file has less chapters than the work
