@@ -6,7 +6,7 @@ services:
     container_name: ao3_updater
     volumes:
       - type: bind
-        source: D:/books
-        target: /app
+        source: D:\\Ebooks
+        target: /app/books
     restart: always
     env_file: .env
