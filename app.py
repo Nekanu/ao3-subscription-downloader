@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 
 BOOK_FORMAT = "EPUB"
 TARGET_DIR = os.path.join(os.path.curdir, "books")
+SCHEDULE_FILE = "schedule.txt"
+SCHEDULE = 60*60*24 # 24 hours in seconds
 
 
 def download_subscriptions(session: AO3.Session, target_dir: str):
@@ -72,36 +74,66 @@ def work_has_changed(work: AO3.Work, filepath: str) -> bool:
         
         # Test if the file has less chapters than the work
         existing_work = epub.read_epub(filepath)
-        return work.nchapters > len(existing_work.spine) - 3
+        return work.nchapters > len(existing_work.spine) - 3 # Subtract 3 to account for the title page, table of contents, and cover page
     
     except Exception as e:
         print(f"{Fore.RED}Error reading existing file: {filepath}\t\t{Style.DIM}{e.args[0]}{Style.RESET_ALL}")
         return False
 
+def check_and_set_timer() -> bool:
+
+    # Check if the next scheduled run (in schedule.txt) is in the past, run it immediately
+    # If the file does not exist, run the main function immediately and create the next scheduled run
+    # If the scheduled run is in the future, wait until the scheduled time to run the main function
+    if not os.path.exists(SCHEDULE_FILE):
+        set_next_run(SCHEDULE)
+        return True
+
+    nextRun = None
+
+    with open(SCHEDULE_FILE, "r") as file:
+        nextRun = float(file.read())
+
+    if nextRun < datetime.now().timestamp():
+        set_next_run(SCHEDULE)
+        return True
+    
+    timerInSeconds = nextRun - datetime.now().timestamp()
+    set_next_run(timerInSeconds)
+    return False
+
+    
+
+def set_next_run(timeInSeconds: int):
+    # Print the Date and Time of the next run
+    # Display in the format "YYYY-MM-DD HH:MM:SS"
+    # Get current time in seconds and add the timerInSeconds
+
+    now = datetime.now()
+    nextRun = now + timedelta(seconds=timeInSeconds)
+
+    # Write the timestamp of the next run to the schedule.txt file
+    with open(SCHEDULE_FILE, "w") as file:
+        file.write(str(nextRun.timestamp()))
+
+    print(f"{Fore.MAGENTA}{Style.BRIGHT}Next run: {Style.RESET_ALL}{nextRun.strftime('%Y-%m-%d %H:%M:%S')} (UTC)\n\n")
+
+    # Schedule the main function to run again after the timeInSeconds
+    threading.Timer(timeInSeconds, main).start()
+
 # Main function
 def main():
     load_dotenv()
+
+    runNow: bool = check_and_set_timer()
+
+    if (not runNow):
+        return
 
     # Login to AO3
     session = AO3.Session(os.getenv("AO3_USERNAME"), os.getenv("AO3_PASSWORD"))
     session.refresh_auth_token()
 
     download_subscriptions(session, TARGET_DIR)
-
-    # Set the timer to 24 hours
-    timerInSeconds = 60*60*24
-
-    # Print the Date and Time of the next run
-    # Display in the format "YYYY-MM-DD HH:MM:SS"
-    # Get current time in seconds and add the timerInSeconds
-
-    now = datetime.now()
-    nextRun = now + timedelta(seconds=timerInSeconds)
-
-    print(f"{Fore.MAGENTA}{Style.BRIGHT}Next run: {Style.RESET_ALL}{nextRun.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-
-    # Schedule the main function to run again in 24 hours
-    threading.Timer(timerInSeconds, main).start()
-
 
 main()
