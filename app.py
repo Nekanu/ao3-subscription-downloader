@@ -1,5 +1,6 @@
 import AO3
 import os
+import signal
 import threading
 from dotenv import load_dotenv
 from colorama import Fore, Style
@@ -11,7 +12,14 @@ BOOK_FORMAT = "EPUB"
 TARGET_DIR = os.path.join(os.path.curdir, "books")
 SCHEDULE_FILE = "schedule.txt"
 SCHEDULE = 60*60*24 # 24 hours in seconds
+TIMER = None
 
+def handle_exit_signals(signum, frame):
+    print(f"{Fore.MAGENTA}{Style.BRIGHT}Exiting...{Style.RESET_ALL}")
+    exit(0)
+
+signal.signal(signal.SIGINT, handle_exit_signals)
+signal.signal(signal.SIGTERM, handle_exit_signals)
 
 def download_subscriptions(session: AO3.Session, target_dir: str):
     # Create target directory if it doesn't exist
@@ -119,7 +127,8 @@ def set_next_run(timeInSeconds: int):
     print(f"{Fore.MAGENTA}{Style.BRIGHT}Next run: {Style.RESET_ALL}{nextRun.strftime('%Y-%m-%d %H:%M:%S')} (UTC)\n\n")
 
     # Schedule the main function to run again after the timeInSeconds
-    threading.Timer(timeInSeconds, main).start()
+    TIMER = threading.Timer(timeInSeconds, main)
+    TIMER.start()
 
 # Main function
 def main():
