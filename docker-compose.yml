@@ -8,5 +8,4 @@ services:
       - type: bind
         source: /home/nekanu/Ebooks
         target: /app/books
-    restart: always
     env_file: .env

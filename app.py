@@ -1,22 +1,19 @@
 import AO3
 import os
 import signal
-import threading
 from dotenv import load_dotenv
 from colorama import Fore, Style
 from slugify import slugify
 from ebooklib import epub
-from datetime import datetime, timedelta
+
+load_dotenv()
 
 BOOK_FORMAT = "EPUB"
-TARGET_DIR = os.path.join(os.path.curdir, "books")
-SCHEDULE_FILE = "schedule.txt"
-SCHEDULE = 60*60*24 # 24 hours in seconds
-TIMER = None
+TARGET_DIR = os.getenv("BOOKS_DIRECTORY") or os.path.join(os.path.curdir, "books")
 
 def handle_exit_signals(signum, frame):
     print(f"{Fore.MAGENTA}{Style.BRIGHT}Exiting...{Style.RESET_ALL}")
-    exit(0)
+    exit(signum)
 
 signal.signal(signal.SIGINT, handle_exit_signals)
 signal.signal(signal.SIGTERM, handle_exit_signals)
@@ -42,7 +39,7 @@ def download_subscriptions(session: AO3.Session, target_dir: str):
             filename = f"{subscription.authors[0].username}_{slugify(subscription.title)}.{BOOK_FORMAT.lower()}"
             filename_tmp = filename + ".tmp"
 
-            # Check if the file already exists in the EBOKS_PATH with the same number of chapters
+            # Check if the file already exists in the EBOOKS_PATH with the same number of chapters
             if not work_has_changed(work, os.path.join(target_dir, filename)):
                 print(f"{title}\t{Fore.GREEN}SKIPPED - UP TO DATE{Style.RESET_ALL}")
                 continue
@@ -88,57 +85,8 @@ def work_has_changed(work: AO3.Work, filepath: str) -> bool:
         print(f"{Fore.RED}Error reading existing file: {filepath}\t\t{Style.DIM}{e.args[0]}{Style.RESET_ALL}")
         return False
 
-def check_and_set_timer() -> bool:
-
-    # Check if the next scheduled run (in schedule.txt) is in the past, run it immediately
-    # If the file does not exist, run the main function immediately and create the next scheduled run
-    # If the scheduled run is in the future, wait until the scheduled time to run the main function
-    if not os.path.exists(SCHEDULE_FILE):
-        set_next_run(SCHEDULE)
-        return True
-
-    nextRun = None
-
-    with open(SCHEDULE_FILE, "r") as file:
-        nextRun = float(file.read())
-
-    if nextRun < datetime.now().timestamp():
-        set_next_run(SCHEDULE)
-        return True
-    
-    timerInSeconds = nextRun - datetime.now().timestamp()
-    set_next_run(timerInSeconds)
-    return False
-
-    
-
-def set_next_run(timeInSeconds: int):
-    # Print the Date and Time of the next run
-    # Display in the format "YYYY-MM-DD HH:MM:SS"
-    # Get current time in seconds and add the timerInSeconds
-
-    now = datetime.now()
-    nextRun = now + timedelta(seconds=timeInSeconds)
-
-    # Write the timestamp of the next run to the schedule.txt file
-    with open(SCHEDULE_FILE, "w") as file:
-        file.write(str(nextRun.timestamp()))
-
-    print(f"{Fore.MAGENTA}{Style.BRIGHT}Next run: {Style.RESET_ALL}{nextRun.strftime('%Y-%m-%d %H:%M:%S')} (UTC)\n\n")
-
-    # Schedule the main function to run again after the timeInSeconds
-    TIMER = threading.Timer(timeInSeconds, main)
-    TIMER.start()
-
 # Main function
 def main():
-    load_dotenv()
-
-    runNow: bool = check_and_set_timer()
-
-    if (not runNow):
-        return
-
     # Login to AO3
     session = AO3.Session(os.getenv("AO3_USERNAME"), os.getenv("AO3_PASSWORD"))
     session.refresh_auth_token()
