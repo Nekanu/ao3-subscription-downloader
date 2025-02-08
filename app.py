@@ -3,7 +3,6 @@ import os
 import signal
 from dotenv import load_dotenv
 from colorama import Fore, Style
-from slugify import slugify
 from ebooklib import epub
 
 load_dotenv()
@@ -17,6 +16,12 @@ def handle_exit_signals(signum, frame):
 
 signal.signal(signal.SIGINT, handle_exit_signals)
 signal.signal(signal.SIGTERM, handle_exit_signals)
+
+def safe_filename(filename: str) -> str:
+    critical_chars = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
+    for char in critical_chars:
+        filename = filename.replace(char, "")
+    return filename
 
 def download_subscriptions(session: AO3.Session, target_dir: str):
     # Create target directory if it doesn't exist
@@ -36,7 +41,7 @@ def download_subscriptions(session: AO3.Session, target_dir: str):
                 print(f"{title}\t{Fore.YELLOW}SKIPPED - RESTRICTED{Style.RESET_ALL}")
                 continue
 
-            filename = f"{subscription.authors[0].username}_{slugify(subscription.title)}.{BOOK_FORMAT.lower()}"
+            filename = f"{safe_filename(subscription.authors[0].username)} - {safe_filename(subscription.title)}.{BOOK_FORMAT.lower()}"
             filename_tmp = filename + ".tmp"
 
             # Check if the file already exists in the EBOOKS_PATH with the same number of chapters
